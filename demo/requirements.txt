@@ -1,0 +1,10 @@
+protobuf>=3.6
+fire
+loguru
+imagesize
+numpy
+opencv-python==4.1.2.30
+PyQt5==5.12
+pyqtgraph==0.12.2
+PyOpenGL
+PyOpenGL-accelerate
