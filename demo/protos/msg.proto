@@ -1,0 +1,348 @@
+// v1.2.1
+
+syntax = "proto3";
+
+package leye;
+
+message Box {
+  int32 xmin  = 1;
+  int32 ymin  = 2;
+  int32 xmax  = 3;
+  int32 ymax  = 4;
+  float score = 5;
+}
+
+message Rect {
+  int32 x = 1;
+  int32 y = 2;
+  int32 w = 3;
+  int32 h = 4;
+}
+
+message Rectf {
+  float x = 1;
+  float y = 2;
+  float w = 3;
+  float h = 4;
+}
+
+message Point {
+  int32 x = 1;
+  int32 y = 2;
+  float v = 3;
+}
+
+message Point3d {
+  int32 x = 1;
+  int32 y = 2;
+  int32 z = 3;
+  float v = 4;
+}
+
+enum Driection {
+  DIR_NONE  = 0;
+  DIR_UP    = 0x0001;
+  DIR_DOWN  = 0x0002;
+  DIR_LEFT  = 0x0004;
+  DIR_RIGHT = 0x0008;
+  DIR_FRONT = 0x0010;
+  DIR_BACK  = 0x0020;
+}
+
+message Image {
+  enum PixelFormat {
+    UNKONWN = 0;
+    JPEG = 1;
+    YUYV = 2;
+    NV12 = 3;
+  }
+
+  uint32      idx     = 1;
+  PixelFormat pix_fmt = 2;
+  int32       width   = 3;
+  int32       height  = 4;
+  bytes       data    = 5;
+}
+
+// 媒体类型
+enum MediaType {
+  MEDIA_UNKONWN      = 0;
+  MEDIA_CAMERA       = 1;  // 摄像头
+  MEDIA_IMAGE_STREAM = 2;  // 图片流
+}
+
+message SocketAddr {
+  string ip   = 1;
+  uint32 port = 2;
+}
+
+message V4l2Ctrl {
+  uint32 id    = 1;
+  int32  value = 2;
+}
+
+// 设备状态
+enum DeviceStatus {
+  DEV_STATUS_PAUSE = 0;  // 暂停
+  DEV_STATUS_PLAY  = 1;  // 开始
+}
+
+// 设备基础信息
+message DeviceBaseInfo {
+  string product_model    = 1;   // 产品型号
+  string device_uid       = 2;   // 设备唯一ID
+  string hardware_version = 3;   // 硬件版本号
+  string software_version = 4;   // 软件版本号
+  string protocol_version = 10;  // 协议版本
+}
+
+// 输入源参数
+message MediaSource {
+  MediaType type = 1;
+}
+
+// 相机参数
+message CameraParam {
+  int32 idx    = 1;
+  int32 width  = 2;
+  int32 height = 3;
+  float fps    = 4;
+
+  enum PixelFormat {
+    UNKONWN = 0;
+    JPEG = 1;  // JPEG 压缩格式
+    YUYV = 2;  // 未压缩格式
+  }
+
+  PixelFormat pix_fmt = 5;
+}
+
+message Pose2d {
+  int32 idx = 1;   // 第几个人的2d pose
+  repeated Point point = 2;
+}
+
+message Pose3d {
+  int32 idx = 1;   // 第几个人的3d pose
+  repeated Point3d point = 2;
+}
+
+// 伸手的方向
+message HandDriection {
+  int32  idx   = 1;  // 第几个人
+  uint32 left  = 2;  // 左手
+  uint32 right = 3;  // 右手
+}
+
+// Box类型模型参数
+message BoxModelParam {
+  float thr        = 1;  // 置信度阈值
+  float iou_thr    = 2;  // IOU阈值
+  int32 min_width  = 3;  // 最小宽度，小于该值的Box将被过滤掉
+  int32 min_height = 4;  // 最小高度，小于该值的Box将被过滤掉
+}
+
+// Box追踪参数
+message BoxTrackParam {
+  Rectf roi               = 1;  // 感兴趣区域
+  float roi_overlap_thr   = 2;  // 重合度阈值
+  float roi_overlap_coeff = 3;  // 重合度系数
+}
+
+// 点卡尔曼滤波参数
+message PointFilterParam {
+  float R_std   = 1;  // 测量噪声标准差
+  float Q_std   = 2;  // 过程噪声标准差
+  float dt      = 3;  // 间隔时间
+  float P_x     = 4;  // 位置初始方差
+  float P_v     = 5;  // 速度初始方差
+  float v_thr   = 6;  // 关键点可见阈值
+  int32 est_err = 7;  // 测量误差阈值，大于该值停止滤波
+}
+
+// 人体3d pose模型参数
+message HumanPose3dModelParam {
+  float kps_thr = 1;  // 关键点阈值，低于该值认为不可见
+}
+
+// 手动作分类参数
+message HandActionClassifyParam {
+  float up_thr    = 1;  // 上阈值，大于该值触发向上动作
+  float down_thr  = 2;  // 下阈值
+  float left_thr  = 3;  // 左阈值
+  float right_thr = 4;  // 右阈值
+  float front_thr = 5;  // 前阈值
+  float back_thr  = 6;  // 后阈值
+}
+
+// 消息命令
+enum MsgCmd {
+  MSG_CMD_UNKNOWN             = 0x0000;  // 未知
+  MSG_CMD_SET_PROPERTY        = 0x0001;  // 设置属性
+  MSG_CMD_GET_PROPERTY        = 0x0002;  // 获取属性
+  MSG_CMD_STREAM_CAM_IMG      = 0x0003;  // 相机图片流
+  MSG_CMD_SWITCH_APP_VERSION  = 0x0004;  // 切换软件版本（重启生效）
+  MSG_CMD_REBOOT_SYSTEM       = 0x0005;  // 重启系统
+  MSG_CMD_MEDIA_SOURCE_STREAM = 0x0006;  // 输入源图片流
+
+  MSG_CMD_STREAM_HUMAN_POSE = 0x0021;  // 人体Pose数据流
+}
+
+
+// 消息属性
+enum MsgProp {
+  MSG_PROP_UNKNOWN               = 0x0000;  // 未知
+  MSG_PROP_DEVICE_STATUS         = 0x8001;  // 状态, DeviceStatus
+  MSG_PROP_DEVICE_BASE_INFO      = 0x0002;  // 基本信息, DeviceBaseInfo
+  MSG_PROP_TEMPERATURE           = 0x0003;  // 温度, float
+  MSG_PROP_APP_NEW_VERSION       = 0x0004;  // app有新版本, str
+  MSG_PROP_APP_VERSIONS          = 0x0005;  // app所有版本, list[str]
+  MSG_PROP_MEDIA_SOURCE          = 0x8006;  // 数据输入源
+  MSG_PROP_CAM_PARAM             = 0x8010;  // 相机参数, CameraParam
+  MSG_PROP_CAM_REAL_PARAM        = 0x0011;  // 实际相机参数, CameraParam
+  MSG_PROP_CAM_CTRL              = 0x8012;  // 相机控制（白平衡，曝光 等）
+  MSG_PROP_ENABLE_CAM_IMG_STREAM = 0x8014;  // 是否传输相机图片, bool
+  MSG_PROP_ENABLE_AI             = 0x8015;  // 是否使能AI, bool
+  MSG_PROP_STREAM_TARGET_ADDR    = 0x8016;  // 流通信目标地址
+
+  // Human Pose 模型
+  MSG_PROP_ENABLE_HUMAN_POSE_STREAM    = 0x8031;  // 是否传输human pose stream
+  MSG_PROP_HUMAN_BOX_MODEL_PARAM       = 0x8032;  // 人体Box模型参数
+  MSG_PROP_HUMAN_POSE2D_MODEL_PARAM    = 0x8033;  // 人体2d pose 模型参数
+  MSG_PROP_HUMAN_POSE3D_MODEL_PARAM    = 0x8034;  // 人体3d pose 模型参数
+  MSG_PROP_HUMAN_BOX_TRACK_PARAM       = 0x8039;  // 人体Box追踪参数
+  MSG_PROP_HUMAN_POSE2D_FILTER_PARAM   = 0x803A;  // 人体2d pose 滤波参数
+  MSG_PROP_HUMAN_HAND_ACTION_CLS_PARAM = 0x803B;  // 人体手动作识别参数
+}
+
+// 消息状态
+enum MsgStatus {
+  MSG_STATUS_OK                   = 0x0000;  // 正常
+  MSG_STATUS_FAILED               = 0x0001;  // 出错
+  MSG_STATUS_TIMEOUT              = 0x0002;  // 超时
+  MSG_STATUS_FRAME_NOT_COMPLETE   = 0x0010;  // 帧不完整
+  MSG_STATUS_FRAME_CHECK_FAILED   = 0x0011;  // 帧检查失败
+  MSG_STATUS_MSG_NOT_COMPLETE     = 0x0020;  // 消息不完整
+  MSG_STATUS_MSG_CHECK_FAILED     = 0x0021;  // 消息检查失败
+  MSG_STATUS_MSG_PARSE_FAILED     = 0x0022;  // 消息解析失败
+  MSG_STATUS_INVALID_CMD          = 0x0030;  // 无效的命令
+  MSG_STATUS_INVALID_PARAM        = 0x0031;  // 无效的参数
+  MSG_STATUS_INVALID_PROP         = 0x0032;  // 无效的属性
+}
+
+// 消息帧头
+message MsgFrameHead {
+  fixed32 frame_len   = 1;  // 当前帧长度
+  fixed32 frame_idx   = 2;  // 帧下标（当前第几帧）
+  fixed32 frame_total = 3;  // 总帧数
+  fixed32 msg_id      = 4;  // 消息序号
+}
+
+// 请求设置属性
+message ReqSetProp {
+  MsgProp prop_id = 1;
+
+  // 属性以uint16最高位1开头，避开其他字段
+  DeviceStatus dev_status             = 0x8001;
+  MediaSource  media_source           = 0x8006;
+  CameraParam  cam_param              = 0x8010;
+  V4l2Ctrl     cam_ctrl               = 0x8012;
+  bool         is_send_cam_img_stream = 0x8014;
+  bool         is_enable_ai           = 0x8015;
+  SocketAddr   stream_target_addr     = 0x8016;
+
+  bool                    is_send_human_pose_stream = 0x8031;
+  BoxModelParam           human_box_model_param     = 0x8032;
+  HumanPose3dModelParam   human_pose3d_model_param  = 0x8034;
+  BoxTrackParam           human_box_track_param     = 0x8039;
+  PointFilterParam        human_pose2d_filter_param = 0x803A;
+  HandActionClassifyParam hand_action_cls_param     = 0x803B;
+}
+
+// 回复设置属性
+message RspSetProp {
+  MsgProp   prop_id    = 1;  // 属性ID
+  MsgStatus status     = 2;  // 状态
+  uint32    req_msg_id = 3;  // 请求消息的ID
+}
+
+// 请求获取属性
+message ReqGetProp {
+  MsgProp  prop_id  = 1;
+  V4l2Ctrl cam_ctrl = 0x8012;
+}
+
+// 回复获取属性
+message RspGetProp {
+  MsgProp   prop_id     = 1;  // 属性ID
+  MsgStatus status      = 2;  // 状态
+  uint32    req_msg_id  = 3;  // 请求消息的ID
+
+  // 属性以uint16最高位1开头，避开其他字段
+  DeviceStatus   dev_status             = 0x8001;
+  DeviceBaseInfo dev_base_info          = 0x8002;
+  float          temperature            = 0x8003;
+  string         app_new_version        = 0x8004;
+  repeated       string app_versions    = 0x8005;
+  MediaSource    media_source           = 0x8006;
+  CameraParam    cam_param              = 0x8010;
+  CameraParam    cam_param_real         = 0x8011;
+  V4l2Ctrl       cam_ctrl               = 0x8012;
+  bool           is_send_cam_img_stream = 0x8014;
+  bool           is_enable_ai           = 0x8015;
+  SocketAddr     stream_target_addr     = 0x8016;
+
+  bool                    is_send_human_pose_stream = 0x8031;
+  BoxModelParam           human_box_model_param     = 0x8032;
+  HumanPose3dModelParam   human_pose3d_model_param  = 0x8034;
+  BoxTrackParam           human_box_track_param     = 0x8039;
+  PointFilterParam        human_pose2d_filter_param = 0x803A;
+  HandActionClassifyParam hand_action_cls_param     = 0x803B;
+}
+
+// 请求切换版本
+message ReqSwitchAppVersion {
+  string app_version = 1;  // app版本号
+}
+
+// 回复切换版本
+message RspSwitchAppVersion {
+    string    app_version = 1;  // app版本号
+    MsgStatus status      = 2;  // 状态
+}
+
+// 请求重启系统
+message ReqRebootSystem {
+}
+
+// 回复重启系统
+message RspRebootSystem {
+  MsgStatus status = 1;  // 状态
+}
+
+// 发送相机图片流（Device -> Host）
+message ReqCamImgStream {
+  Image cam_img = 1;
+}
+
+// 发送媒体数据流（Host -> Device）
+message ReqMediaStream {
+  MediaType type = 1;  // 媒体类型（目前只有IMAGE_STREAM可选）
+  Image     img  = 2;
+}
+
+// 回复媒体数据流
+message RspMediaStream {
+  MsgStatus status  = 1;  // 状态
+  MediaType type    = 2;  // 媒体类型
+  uint32    img_idx = 3;  // 图片的下标，与接收到的一致
+}
+
+// 发送人体Pose数据流
+message ReqHumanPoseStream {
+  uint32   img_idx   = 1;  // 图片的下标
+  repeated Box boxes = 2;
+  repeated Pose2d pose2ds = 3;
+  repeated Pose3d pose3ds = 4;
+  repeated HandDriection hand_dirs = 5;
+}
