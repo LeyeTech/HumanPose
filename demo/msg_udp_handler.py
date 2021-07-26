@@ -52,6 +52,9 @@ class MsgUdpHandler(object):
         self.payload_max_bytes = payload_max_bytes
         self.msg_id = 0
 
+    def sendData(self, data):
+        self.sock.sendto(data, self.net_target_addr)
+
     def sendMsg(self, cmd, proto_obj=None):
         # 负载序列化
         payload = b'' if proto_obj is None else proto_obj.SerializeToString()
@@ -74,7 +77,7 @@ class MsgUdpHandler(object):
                     self.msg_id,  # 消息ID
                     )
             frame = frame_head + payload[send_bytes:send_bytes+frame_payload_bytes]
-            self.sock.sendto(frame, self.net_target_addr)
+            self.sendData(frame)
             send_bytes += frame_payload_bytes
         self.msg_id += 1
 
@@ -154,3 +157,10 @@ class MsgUdpHandler(object):
         frame_total = frame_full_num if frame_remain_bytes == 0 else \
                 frame_full_num + 1
         return frame_total
+
+    def clearSocketRecvBuf(self, timeout=0):
+        while True:
+            rd_list, _, _ = select.select([self.sock], [], [], timeout)
+            if self.sock not in rd_list:
+                return None
+            self.sock.recvfrom(65536)

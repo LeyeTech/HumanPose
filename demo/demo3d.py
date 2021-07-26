@@ -38,7 +38,7 @@ class HumanPoseWidget(gl.GLViewWidget):
             is_show_img:bool=True,
             kps3d_max_height=3000,
             kps3d_z_offset=0.5,
-            idx_max_diff=5,
+            idx_max_diff=3,
             parent=None):
         super().__init__(parent)
         self.img_queue = img_queue
@@ -275,22 +275,24 @@ class HumanPoseWidget(gl.GLViewWidget):
 
 
 def main(
-    source          :Union[str, int] = '',
-    net_local_ip    :str             = '0.0.0.0',
-    net_target_ip   :str             = '192.168.181.2',
-    net_port        :int             = 30000,
-    net_stream_port :int             = 30001,
-    window_title    :str             = 'Human Pose',
-    kps_thr         :float           = 0.6,
-    cam_idx         :int             = 0,
-    cam_fps         :int             = 30,
-    cam_img_w       :int             = 1280,
-    cam_img_h       :int             = 720,
-    show_fps        :bool            = None,
-    is_draw_fps     :bool            = None,
-    is_show_img     :bool            = True,
-    kps3d_max_height:float           = 2000.,
-    kps3d_z_offset  :float           = 0.5,
+    source                 :Union[str, int] = '',
+    net_local_ip           :str             = '0.0.0.0',
+    net_local_port         :int             = 30000,
+    net_local_stream_port  :int             = 30001,
+    net_target_ip          :str             = '192.168.181.2',
+    net_target_port        :int             = 30000,
+    net_target_stream_port :int             = 30001,
+    window_title           :str             = 'Human Pose',
+    kps_thr                :float           = 0.6,
+    cam_idx                :int             = 0,
+    cam_fps                :int             = 30,
+    cam_img_w              :int             = 1280,
+    cam_img_h              :int             = 720,
+    show_fps               :bool            = None,
+    is_draw_fps            :bool            = None,
+    is_show_img            :bool            = True,
+    kps3d_max_height      :float            = 2000.,
+    kps3d_z_offset         :float           = 0.5,
     ):
     '''
     3D Demo
@@ -305,9 +307,11 @@ def main(
 
         ``注意：输入源图片宽和高必须是16的倍数，且尺寸小于1920x1080``
     net_local_ip: 本地监听IP
+    net_local_port: 本地监听端口号
+    net_local_stream_port: 本地监听数据流端口号
     net_target_ip: 目标IP
-    net_port: 属性通信端口
-    net_stream_port: 数据流通信端口
+    net_target_port: 目标端口号
+    net_target_stream_port: 目标数据流端口号
     window_title: UI窗口标题
     kps_thr: 关键点可见阈值，置信度小于该值不显示
     cam_idx: 加速板相机下标
@@ -348,12 +352,14 @@ def main(
                 raise ValueError('Invalid input source')
     else:
         raise ValueError('Invalid input source')
-    # 输入源为图片时，显示帧率设置为0，不渲染FPS
+    # 输入源为图片时，显示帧率设置为0，不渲染FPS，图片和pose index应一致
+    idx_max_diff = 3
     if source_type == 'img':
         if show_fps is None:
             show_fps = 0
         if is_draw_fps is None:
             is_draw_fps = False
+        idx_max_diff = 1
     else:
         if is_draw_fps is None:
             is_draw_fps = True
@@ -370,10 +376,10 @@ def main(
                 exit(1)
 
     # 创建Msg Handler
-    net_local_addr = (net_local_ip, net_port)
-    net_target_addr = (net_target_ip, net_port)
-    net_stream_local_addr = (net_local_ip, net_stream_port)
-    net_stream_target_addr = (net_target_ip, net_stream_port)
+    net_local_addr = (net_local_ip, net_local_port)
+    net_target_addr = (net_target_ip, net_target_port)
+    net_stream_local_addr = (net_local_ip, net_local_stream_port)
+    net_stream_target_addr = (net_target_ip, net_target_stream_port)
 
     msg_handler = MsgUdpHandler(net_local_addr, net_target_addr, 1)
     msg_stream_handler = MsgUdpHandler(net_stream_local_addr,
@@ -381,7 +387,7 @@ def main(
     dev_agent = DevAgent(msg_handler)
 
     # 设置设备属性
-    time.sleep(0.1)
+    dev_agent.setDevStatus(msg_pb2.DEV_STATUS_PAUSE)
     if source_type == 'dev_camera':
         dev_agent.setCameraParam(cam_idx, cam_img_w, cam_img_h, cam_fps)
         dev_agent.enableSendCamImgStream()
@@ -390,12 +396,15 @@ def main(
         dev_agent.enableSendHumanPoseStream()
         dev_agent.disableSendCamImgStream()
         dev_agent.enableImgStreamSource()
+    msg_stream_handler.sendData(b'')
+    dev_agent.setStreamTargetAddr('192.168.181.1', net_local_stream_port)
+    msg_stream_handler.clearSocketRecvBuf(timeout=0.1)
     dev_agent.setDevStatus(msg_pb2.DEV_STATUS_PLAY)
-    time.sleep(0.1)
 
     logger.info(f"dev status: {dev_agent.getDevStatus()}")
     logger.info(f"media source: {dev_agent.getMediaSource()}",)
     logger.info(f"send human pose flag: {dev_agent.isSendHumanPoseStream()}")
+    logger.info(f"stream target addr: {dev_agent.getStreamTargetAddr()}")
     if source_type == 'dev_camera':
         logger.info(f"cam param:\n{dev_agent.getCameraParam()}")
         logger.info(f"cam real param:\n{dev_agent.getCameraRealParam()}")
@@ -404,7 +413,7 @@ def main(
     # 创建 Services
     img_send_queue = Queue(1)
     img_show_queue = Queue(1)
-    pose_recv_queue = Queue(3)
+    pose_recv_queue = Queue(2)
     pose_show_queue = Queue(1)
 
     if source_type == 'dev_camera':
@@ -429,7 +438,8 @@ def main(
             kps3d_z_offset=kps3d_z_offset,
             show_fps=show_fps,
             is_draw_fps=is_draw_fps,
-            is_show_img=is_show_img)
+            is_show_img=is_show_img,
+            idx_max_diff=idx_max_diff)
     cw.setWindowTitle(window_title)
     cw.show()
 

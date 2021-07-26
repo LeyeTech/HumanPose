@@ -353,11 +353,16 @@ class DevAgent(object):
 
 
 if __name__ == '__main__':
+    import os
     import fire
 
-    net_local_addr  = ("0.0.0.0", 20000)
-    net_target_addr = ("192.168.181.2", 30000)
-    socket_timeout = 1
+    net_local_ip = os.getenv('LOCAL_IP', '0.0.0.0')
+    net_local_port = int(os.getenv('LOCAL_PORT', 20000))
+    net_target_ip = os.getenv('TARGET_IP', '192.168.181.2')
+    net_target_port = int(os.getenv('TARGET_PORT', 30000))
+    socket_timeout = int(os.getenv('TIMEOUT', 1))
+    net_local_addr  = (net_local_ip, net_local_port)
+    net_target_addr = (net_target_ip, net_target_port)
 
     msg_handler = MsgUdpHandler(net_local_addr, net_target_addr, socket_timeout)
     dev_agent = DevAgent(msg_handler)

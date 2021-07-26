@@ -41,19 +41,19 @@ class BaseThread(threading.Thread):
         self._run()
         self.is_running = False
 
-    def putQueue(self, q, d):
+    def putQueue(self, q, d, timeout=1):
         while self.is_running:
             try:
-                q.put(d, timeout=1)
+                q.put(d, timeout=timeout)
                 return True
             except queue.Full:
                 continue
         return False
 
-    def popQueue(self, q):
+    def popQueue(self, q, timeout=1):
         while self.is_running:
             try:
-                d = q.get(timeout=1)
+                d = q.get(timeout=timeout)
                 return d
             except queue.Empty:
                 continue
@@ -263,7 +263,7 @@ class StreamRecvService(BaseThread):
         if cmd == msg_pb2.MSG_CMD_STREAM_CAM_IMG:
             self.handleCamImgMsg(msg)
         elif cmd == msg_pb2.MSG_CMD_STREAM_HUMAN_POSE:
-            self.handleHumanMsg(msg)
+            self.handleHumanPoseMsg(msg)
         elif cmd == MSG_GET_CMD_RESPONS(msg_pb2.MSG_CMD_MEDIA_SOURCE_STREAM):
             self.handleRspSourceStreamImg(msg)
         else:
@@ -279,7 +279,7 @@ class StreamRecvService(BaseThread):
             self.img_queue.get_nowait()
         self.img_queue.put((img.idx, img.data))
 
-    def handleHumanMsg(self, msg):
+    def handleHumanPoseMsg(self, msg):
         req = msg_pb2.ReqHumanPoseStream()
         req.ParseFromString(msg['payload'][2:])
         # print(f"img idx: {req.img_idx}")
@@ -291,9 +291,8 @@ class StreamRecvService(BaseThread):
             kps.append([(kps[6][0]+kps[9][0])//2, (kps[6][1]+kps[9][1])//2,
                     min(kps[6][2], kps[9][2])])
             pose['kps'] = kps
-
+        # 调整kps3d坐标系
         if len(req.pose3ds) > 0:
-            # 调整坐标系
             # kps3d = [[p.x, p.y, p.z, p.v] for p in req.pose3ds[0].point]
             kps3d = [[-p.x, -p.z, -p.y, p.v] for p in req.pose3ds[0].point]
             pose['kps3d'] = kps3d
@@ -303,8 +302,9 @@ class StreamRecvService(BaseThread):
             right_dir = [req.hand_dirs[0].right & (1 << x) for x in range(6)]
             pose['hand_dir'] = (left_dir, right_dir)
 
-        if not self.pose_queue.full():
-            self.pose_queue.put((req.img_idx, pose))
+        if self.pose_queue.full():
+            self.pose_queue.get_nowait()
+        self.pose_queue.put((req.img_idx, pose))
 
     def handleRspSourceStreamImg(self, msg):
         rsp = msg_pb2.RspMediaStream()
@@ -324,7 +324,7 @@ class HumanPoseDisplayer(object):
             kps_thr:float,
             show_fps:float=None,
             is_draw_fps:bool=True,
-            idx_max_diff=5):
+            idx_max_diff=3):
         super(HumanPoseDisplayer, self).__init__()
         self.title = title
         self.img_queue = img_queue
@@ -467,28 +467,30 @@ class MediaSourceService(BaseThread):
                 if not self.putQueue(self.img_show_queue, last_frame):
                     break
             # 获取接收到的pose
-            if last_frame is not None:
-                pose = self.popQueue(self.pose_recv_queue)
-                if pose is not None:
-                    self.putQueue(self.pose_show_queue, pose)
+            pose = self.popQueue(self.pose_recv_queue,
+                    timeout=1 if last_frame is not None else 0.01)
+            if pose is not None:
+                self.pose_show_queue.put(pose)
             last_frame = frame
 
 
 def main(
-    source          :Union[str, int] = '',
-    net_local_ip    :str             = '0.0.0.0',
-    net_target_ip   :str             = '192.168.181.2',
-    net_port        :int             = 30000,
-    net_stream_port :int             = 30001,
-    window_title    :str             = 'Human Pose',
-    kps_thr         :float           = 0.6,
-    cam_idx         :float           = 0,
-    cam_fps         :int             = 30,
-    cam_img_w       :int             = 1280,
-    cam_img_h       :int             = 720,
-    show_fps        :bool            = None,
-    is_draw_fps     :bool            = None,
-    is_show_img     :bool            = True,
+    source                 :Union[str, int] = '',
+    net_local_ip           :str             = '0.0.0.0',
+    net_local_port         :int             = 30000,
+    net_local_stream_port  :int             = 30001,
+    net_target_ip          :str             = '192.168.181.2',
+    net_target_port        :int             = 30000,
+    net_target_stream_port :int             = 30001,
+    window_title           :str             = 'Human Pose',
+    kps_thr                :float           = 0.6,
+    cam_idx                :float           = 0,
+    cam_fps                :int             = 30,
+    cam_img_w              :int             = 1280,
+    cam_img_h              :int             = 720,
+    show_fps               :bool            = None,
+    is_draw_fps            :bool            = None,
+    is_show_img            :bool            = True,
     ):
     '''
     Demo
@@ -503,9 +505,11 @@ def main(
 
         ``注意：输入源图片宽和高必须是16的倍数，且尺寸小于1920x1080``
     net_local_ip: 本地监听IP
+    net_local_port: 本地监听端口号
+    net_local_stream_port: 本地监听数据流端口号
     net_target_ip: 目标IP
-    net_port: 属性通信端口
-    net_stream_port: 数据流通信端口
+    net_target_port: 目标端口号
+    net_target_stream_port: 目标数据流端口号
     window_title: UI窗口标题
     kps_thr: 关键点可见阈值，置信度小于该值不显示
     cam_idx: 加速板相机下标
@@ -544,12 +548,14 @@ def main(
                 raise ValueError('Invalid input source')
     else:
         raise ValueError('Invalid input source')
-    # 输入源为图片时，显示帧率设置为0，不渲染FPS
+    # 输入源为图片时，显示帧率设置为0，不渲染FPS，图片和pose index应一致
+    idx_max_diff = 3
     if source_type == 'img':
         if show_fps is None:
             show_fps = 0
         if is_draw_fps is None:
             is_draw_fps = False
+        idx_max_diff = 1
     else:
         if is_draw_fps is None:
             is_draw_fps = True
@@ -566,10 +572,10 @@ def main(
                 exit(1)
 
     # 创建Msg Handler
-    net_local_addr = (net_local_ip, net_port)
-    net_target_addr = (net_target_ip, net_port)
-    net_stream_local_addr = (net_local_ip, net_stream_port)
-    net_stream_target_addr = (net_target_ip, net_stream_port)
+    net_local_addr = (net_local_ip, net_local_port)
+    net_target_addr = (net_target_ip, net_target_port)
+    net_stream_local_addr = (net_local_ip, net_local_stream_port)
+    net_stream_target_addr = (net_target_ip, net_target_stream_port)
 
     msg_handler = MsgUdpHandler(net_local_addr, net_target_addr, 1)
     msg_stream_handler = MsgUdpHandler(net_stream_local_addr,
@@ -577,7 +583,7 @@ def main(
     dev_agent = DevAgent(msg_handler)
 
     # 设置设备属性
-    time.sleep(0.1)
+    dev_agent.setDevStatus(msg_pb2.DEV_STATUS_PAUSE)
     if source_type == 'dev_camera':
         dev_agent.setCameraParam(cam_idx, cam_img_w, cam_img_h, cam_fps)
         dev_agent.enableSendCamImgStream()
@@ -586,12 +592,15 @@ def main(
         dev_agent.enableSendHumanPoseStream()
         dev_agent.disableSendCamImgStream()
         dev_agent.enableImgStreamSource()
+    msg_stream_handler.sendData(b'')
+    dev_agent.setStreamTargetAddr('192.168.181.1', net_local_stream_port)
+    msg_stream_handler.clearSocketRecvBuf(timeout=0.1)
     dev_agent.setDevStatus(msg_pb2.DEV_STATUS_PLAY)
-    time.sleep(0.1)
 
     logger.info(f"dev status: {dev_agent.getDevStatus()}")
     logger.info(f"media source: {dev_agent.getMediaSource()}",)
     logger.info(f"send human pose flag: {dev_agent.isSendHumanPoseStream()}")
+    logger.info(f"stream target addr: {dev_agent.getStreamTargetAddr()}")
     if source_type == 'dev_camera':
         logger.info(f"cam param:\n{dev_agent.getCameraParam()}")
         logger.info(f"cam real param:\n{dev_agent.getCameraRealParam()}")
@@ -600,7 +609,7 @@ def main(
     # 创建 Services
     img_send_queue = Queue(1)
     img_show_queue = Queue(1)
-    pose_recv_queue = Queue(3)
+    pose_recv_queue = Queue(2)
     pose_show_queue = Queue(1)
 
     if source_type == 'dev_camera':
@@ -622,7 +631,8 @@ def main(
     pose_displayer = HumanPoseDisplayer(window_title, img_show_queue,
             pose_show_queue,
             is_show_img, cam_img_w, cam_img_h, kps_thr,
-            show_fps=show_fps, is_draw_fps=is_draw_fps)
+            show_fps=show_fps, is_draw_fps=is_draw_fps,
+            idx_max_diff=idx_max_diff)
 
     # 开始
     if source_type != 'dev_camera':
