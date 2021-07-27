@@ -44,15 +44,15 @@
 
 目前支持的命令：
 
-| 命令名 | 命令ID | 请求 | 回复 | 端口号 | 方向 | 说明 |
-| ---- |  ----  |  ----  |  ----  |  ----  |  ----  | ---- |
-| 设置属性 | 0x0001 | ReqSetProp | RspSetProp | 30000 | host → device |  |
+| 命令名 | 命令ID | 请求 | 回复 | <nobr>端口号<nobr> | 方向 | 说明 |
+| :---- | :---- | :---- | :---- | :---- | :---- | :---- |
+| <nobr>设置属性</nobr> | 0x0001 | ReqSetProp | RspSetProp | 30000 | <nobr>host → device<nobr> |  |
 | 读取属性 | 0x0002 | ReqGetProp | RspGetProp | 30000 | host → device |  |
-| 相机图片流 | 0x0003 | ReqCamImgStream | 无 | **30001** | device → host | 加速板主动发送 |
+| 相机图片流 | 0x0003 | ReqCamImgStream | 无 | **30001** | device → host | <nobr>加速板主动发送<nobr> |
 | 切换软件版本 | 0x0004 | ReqSwitchAppVersion | ReqSwitchAppVersion | 30000 | host → device |  |
 | 重启系统 | 0x0005 | ReqRebootSystem | RspRebootSystem | 30000 | host → device |  |
 | 媒体数据流 | 0x0006 | ReqMediaStream | RspMediaStream | **30001** | host → device | 目前只支持JPG格式的图片，且图片宽和高必须是16的倍数，尺寸小于1920x1080。 |
-| 人体Pose数据流 | 0x0021 | ReqHumanPoseStream | 无 | 30001 | device → host | 加速板主动发送 |
+| <nobr>人体Pose数据流</nobr> | 0x0021 | ReqHumanPoseStream | 无 | 30001 | device → host | 加速板主动发送 |
 
 protobuf描述文件：[msg.proto](https://raw.githubusercontent.com/LeyeTech/HumanPose/main/protos/msg.proto)
 
