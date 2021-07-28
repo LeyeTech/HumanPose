@@ -1,6 +1,6 @@
 # 乐野 AI加速板
 
-[API 说明](https://github.com/LeyeTech/HumanPose/doc/api.md)
+[API 说明](https://github.com/LeyeTech/HumanPose/blob/main/doc/api.md)
 
 ## 快速开始（Python）
 
@@ -17,17 +17,17 @@ $ pip install -i https://pypi.mirrors.ustc.edu.cn/simple -r requirements.txt
 将AI加速卡插入电脑USB口。
 
 **Windows**:
-- [安装驱动](https://github.com/LeyeTech/HumanPose/driver/windows_cdc_eem/README.md)
-- [设置静态IP](https://github.com/LeyeTech/HumanPose/doc/windows_set_static_IP_address.md)
+- [安装驱动](https://github.com/LeyeTech/HumanPose/blob/main/driver/windows_cdc_eem/README.md)
+- [设置静态IP](https://github.com/LeyeTech/HumanPose/blob/main/doc/windows_set_static_IP_address.md)
 
 **Ubuntu**:
 - 驱动自带，无需安装
 - [设置静态IP](https://linuxconfig.org/how-to-configure-static-ip-address-on-ubuntu-18-04-bionic-beaver-linux)，
-将AI加速板网卡的IP设置为192.168.181.2。
+将AI加速板网卡的IP设置为192.168.181.1。
 
 ### 运行Demo
 ```shell
 $ cd demo
 $ python demo.py
 ```
-demo的详细使用，参考demo目录下的[README.md](https://github.com/LeyeTech/HumanPose/demo/README.md)。
+demo的详细使用，参考demo目录下的[README.md](https://github.com/LeyeTech/HumanPose/blob/main/demo/README.md)。
