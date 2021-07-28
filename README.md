@@ -8,7 +8,7 @@
 需要Python>=3.6.0
 ```shell
 $ git clone https://github.com/LeyeTech/HumanPose.git
-$ cd HumanPose
+$ cd HumanPose/demo
 # 推荐使用国内软件源
 $ pip install -i https://pypi.mirrors.ustc.edu.cn/simple -r requirements.txt
 ```
