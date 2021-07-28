@@ -1,58 +1,33 @@
-# 乐野 AI 加速板API
+# 乐野 AI加速板
 
-## 1. 通信基础说明
-### 1.1 通信接口说明
-- AI加速板与上位机之间采用USB连接，AI加速板作为USB Slave。
-- AI加速板模拟为USB网卡，与上位机之间使用以太网通信。
-- AI加速板的IP为192.168.181.2 ，上位机IP为192.168.181.1（需手动设置），均为静态IP。
-- 上位机需提供网络转发功能，以便AI加速卡以上位机为跳板，连接到互联网；用于AI加速卡状态监控和系统升级。
+[API 说明](https://github.com/LeyeTech/HumanPose/doc/api.md)
 
-### 1.2 通信协议说明
-- AI加速板与中控板之间使用 UDP 进行通信。
-- 消息分帧发送，每一帧长度都需小于或等于65000个字节。
-- 帧不能乱序，帧序号应是连贯的。
-- 一条消息发送完，才能发送下一条。
+## 快速开始（Python）
 
-### 1.3 通信端口说明说明
+### 下载源码，安装依赖
+需要Python>=3.6.0
+```shell
+$ git clone https://github.com/LeyeTech/HumanPose.git
+$ cd HumanPose
+# 推荐使用国内软件源
+$ pip install -i https://pypi.mirrors.ustc.edu.cn/simple -r requirements.txt
+```
 
-| AI 加速板端口   | 上位机端口号  |  说明  |
-|  ----  | ----  | ---- |
-| 30000  | 任意 | 一问一答端口，用于传输小数据量的信息，如：设置设备属性 |
-| 30001  | 任意 | 数据流端口，用于传输数据量大的信息，如：图片 |
+### 设置静态IP
+将AI加速卡插入电脑USB口。
 
-## 2. 通信协议
-### 2.1 帧格式
-一条消息由一帧或多帧组成。
-| 域 | 帧长度 | 帧序号 | 帧总数 | 消息序号 | 消息内容 |
-|  ----  |  ----  |  ----  |  ----  |  ----  |  ----  |
-| **字节数** | 4 | 4 | 4 | 4 | 帧长度-4-4-4-4 |
-| **类型** | uint32 | uint32 | uint32 | uint32| bytes |
+**Windows**:
+- [安装驱动](https://github.com/LeyeTech/HumanPose/driver/windows_cdc_eem/README.md)
+- [设置静态IP](https://github.com/LeyeTech/HumanPose/doc/windows_set_static_IP_address.md)
 
-说明：
-- 帧长度：当前数据帧的长度（包含自己）
-- 帧总数：当前消息分成多少帧发送
-- 帧序号：当前消息的第几帧，从1开始计数（当帧序号与帧总数相等时，表示消息发送完毕）
-- 消息序号：表示是第几个消息，自增即可
-- 消息内容：消息所包含的信息
+**Ubuntu**:
+- 驱动自带，无需安装
+- [设置静态IP](https://linuxconfig.org/how-to-configure-static-ip-address-on-ubuntu-18-04-bionic-beaver-linux)，
+将AI加速板网卡的IP设置为192.168.181.2。
 
-### 2.2 消息内容
-消息内容由**命令**和**命令数据**组成，命令数据使用**protobuf**序列化。
-
-**命令通用约束**：
-- 命令为uint16类型，占用2个字节。
-- 最高位为0表示请求信息，最高位为1表示回复信息。
-
-目前支持的命令：
-
-| 命令名 | 命令ID | 请求 | 回复 | 端口号 | 方向 | 说明 |
-| :---- | :---- | :---- | :---- | :---- | :---- | :---- |
-| 设置属性 | 0x0001 | ReqSetProp | RspSetProp | 30000&#160; | host&#160;→&#160;device |  |
-| 读取属性 | 0x0002 | ReqGetProp | RspGetProp | 30000 | host → device |  |
-| 相机图片流 | 0x0003 | ReqCamImgStream | 无 | **30001** | device → host | 加速板主动发送 |
-| 切换软件版本 | 0x0004 | ReqSwitchAppVersion | RspSwitchAppVersion | 30000 | host → device |  |
-| 重启系统 | 0x0005 | ReqRebootSystem | RspRebootSystem | 30000 | host → device |  |
-| 媒体数据流 | 0x0006 | ReqMediaStream | RspMediaStream | **30001** | host → device | 目前只支持JPG格式的图片，且图片宽和高必须是16的倍数，尺寸小于1920x1080。 |
-| 人体Pose数据流 | 0x0021 | ReqHumanPoseStream | 无 | 30001 | device → host | 加速板主动发送 |
-
-protobuf描述文件：[msg.proto](https://raw.githubusercontent.com/LeyeTech/HumanPose/main/protos/msg.proto)
-
+### 运行Demo
+```shell
+$ cd demo
+$ python demo.py
+```
+demo的详细使用，参考demo目录下的[README.md](https://github.com/LeyeTech/HumanPose/demo/README.md)。

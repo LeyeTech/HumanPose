@@ -1,5 +1,5 @@
 # HumanPose 测试客户端
-用于测试HumanPose加速卡，运行环境Python3.7+。
+用于测试HumanPose加速卡，运行环境Python3.6+。
 ```shell
 # 环境安装（推荐使用conda创建环境）
 pip install -i https://pypi.mirrors.ustc.edu.cn/simple -r requirements.txt
